@@ -1,0 +1,22 @@
+{
+  "name": "latency-agora-server",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "santiago",
+  "license": "ISC",
+  "dependencies": {
+    "agora-rtm-sdk": "^1.6.0-204",
+    "express": "^4.18.2",
+    "node-fetch": "^3.2.10",
+    "phantomjs-prebuilt": "^2.1.16"
+  },
+  "devDependencies": {
+    "html-build": "^1.0.1"
+  }
+}

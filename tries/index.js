@@ -1,0 +1,28 @@
+import AgoraRTM from 'agora-rtm-sdk'
+
+
+const clientInit = async () => {
+
+const credentials = {
+    uid: '81',
+    appId: '01c84bffc1d14fe3a6796d4e0726a4cb',
+    channelName: 'skippy-brett'
+}
+
+const response2 = await fetch(`https://uldizaax95.execute-api.us-west-1.amazonaws.com/token?channel=${credentials.channelName}&userid=${credentials.uid}&mode=rtm`);
+const tokenNew = await response2.text();
+
+let client = AgoraRTM.createInstance(credentials.appId);
+await client.login({ uid: credentials.uid,token: tokenNew });
+
+const channel = client.ncreateChannel(credentials.channelName);
+await channel.join();
+
+}
+
+clientInit();
+
+// ## UNUSED ##
+// await channel.sendMessage({ text });
+// await channel.leave();
+// await client.logout();
