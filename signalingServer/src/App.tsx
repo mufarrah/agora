@@ -9,7 +9,7 @@ function App() {
   
   useEffect(() => {
     const credentials = {
-      uid: '81',
+      uid: '79',
       appId: '01c84bffc1d14fe3a6796d4e0726a4cb',
       channelName: 'skippy-brett'
     }
