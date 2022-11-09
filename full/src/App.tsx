@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 import { VideoCall } from "./components/VideoCall";
 import { ChannelForm } from "./components/ChannelForm";
+import { RtmChannel } from "agora-rtm-sdk";
 
 const App = () => {
   const [inCall, setInCall] = useState(false);
@@ -45,7 +46,7 @@ const App = () => {
           localCredentials.ips.push(skippies[i].ip_address);
         }
         for (let i = 0; i < localCredentials.channel.length; i++) {
-          const response = await fetch(process.env.REACT_APP_AGORA_TOKEN! + localCredentials.channel[i]);
+          const response = await fetch(process.env.REACT_APP_AGORA_TOKEN! + localCredentials.channel[i] + "&userid="+ localCredentials.channel[i] +"&mode=rtm");
           const token = await response.text();
           localCredentials.token.push(token);         
         }

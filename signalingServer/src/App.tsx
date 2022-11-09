@@ -13,7 +13,7 @@ function App() {
       appId: '01c84bffc1d14fe3a6796d4e0726a4cb',
       channelName: 'skippy-brett'
     }
-
+    
     let newChannel: RtmChannel;
     
     const connect = async () => {
@@ -23,22 +23,35 @@ function App() {
         await useSignalingClient.login({uid:credentials.uid,token: tokenNew});
         const channel = useSignalingClient.createChannel(credentials.channelName);
         await channel.join();
-        await channel.sendMessage({ text: "++ testing msg ++" });
         newChannel = channel;
-        channel.on('ChannelMessage', ({ text }, senderId) => {
-          console.log("text ++++: ", text);
-          console.log("senderId ++++: ", senderId);
-          if (text === "++ testing msg ++") {
-            console.log("5 ++++: ", text);
+        channel.on('ChannelMessage', async ({ text }, senderId) => {
+          const recived = JSON.parse(text!);
+          const pongTime = new Date().getTime();
+          const apiCall = {
+            "op": "service_response",
+            "service": "ping_status",
+            "values": {
+              "Pong_time": pongTime,
+              "ms_to_robot": pongTime - parseInt(recived.args.Ping_time),
+            },
+            "result": "true"
           }
+          const message = useSignalingClient.createMessage({
+            text: JSON.stringify(apiCall)
+          });
+          if(newChannel) {
+            console.log("++ Sending message ++");
+            await newChannel.sendMessage(message);
+          }
+          console.log('++ Message received: ++', text, ' || from user ', senderId);
         });
       } catch (error) {
-        console.log("error: ", error);
+        console.log("Error : ", error);
       }
     }
     connect();
     return () => {
-      console.log("+++++: ", newChannel);
+      console.log("++ Channel Name +++: ", newChannel);
       if(newChannel) {
         newChannel.leave();
         useSignalingClient.logout();
@@ -67,4 +80,6 @@ function App() {
   }
   
   export default App;
+  
+
   

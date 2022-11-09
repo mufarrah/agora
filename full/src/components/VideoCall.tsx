@@ -30,6 +30,13 @@ export const VideoCall = (props: {
     const [users, setUsers] = useState<IAgoraRTCRemoteUser[]>([]);
     const [start, setStart] = useState<boolean>(false);
     const [latency, setLatency] = useState<{}>({});
+    const [agoraChannel, setAgoraChannel] = useState<RtmChannel>();
+    const [pingTime, setPingTime] = useState<number>(0);
+    const [signalingLatency, setSignalingLatency] = useState<{}>({
+        "Browser to Robot": 0, 
+        "Round Trip": 0, 
+        "One Way": 0
+    });
     const [inputLatency, setInputLatency] = useState<{}>({
         "Browser to Robot": 0, 
         "Round Trip": 0, 
@@ -37,6 +44,8 @@ export const VideoCall = (props: {
         const client = useClient();
         const { ready, tracks } = useMicrophoneAndCameraTracks();
         const [ws, setWs] = useState<WebSocket>();
+        
+        //AGORA CAMERAS
         useEffect(() => {
             
             // function to initialise the SDK
@@ -85,102 +94,164 @@ export const VideoCall = (props: {
                 
             }
             
-            
             setWs(null);
         }, [channelName, client, ready, tracks, ip]);
         
-        useEffect(() => {
-            let newChannel: RtmChannel;
-            const connect = async () => {
-                try {
-                    const response2 = await fetch(`https://uldizaax95.execute-api.us-west-1.amazonaws.com/token?channel=${channelName}&userid=8&mode=rtm`);
-                    const tokenNew = await response2.text();
-                    await useSignalingClient.login({uid:"8",token: tokenNew});
-                    const channel = useSignalingClient.createChannel(channelName);
-                    await channel.join();
-                    await channel.sendMessage({ text: "++ testing msg ++" });
-                    newChannel = channel;
-                    channel.on('ChannelMessage', ({ text }, senderId) => {
-                        console.log("text ++++: ", text);
-                        console.log("senderId ++++: ", senderId);
-                        if (text === "++ testing msg ++") {
-                            console.log("5 ++++: ", text);
-                        }
-                    });
-                } catch (error) {
-                    console.log("error: ", error);
-                }
-            }
-            connect();
-            return () => {
-                console.log("+++++: ", newChannel);
-                if(newChannel) {
-                    newChannel.leave();
-                    useSignalingClient.logout();
-                }
-            }
-        }, [channelName]);
         
-        useEffect(() => {
-            const interval = setInterval(() => {
-                if(ws===undefined || ws===null) {
-                    // setWs(new WebSocket("ws://"+ip+":8888"));
-                    setWs(new WebSocket("ws://73.24.21.34:8888"));
-                } else {
-                    // MESSAGE TO SERVER
-                    const pingTime = new Date().getTime();
-                    const apiCall = {
-                        "op": "call_service",
-                        "service": "ping_status",
-                        "args": {
-                            "Ping_time": pingTime
-                        }
-                    }
-                    //SENDING THE MESSAGE
-                    ws.send(JSON.stringify(apiCall));
-                    ws.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        const pongTime = new Date().getTime();
-                        setInputLatency({
-                            "Browser to Robot": Math.trunc(data.values.Pong_time*1000) - pingTime , 
-                            "Round Trip": pongTime - pingTime, 
-                            "One Way": (pongTime - pingTime)/2});
-                        }
-                    }
-                }, 2000);
-                return () => {
-                    clearInterval(interval);
-                    if (ws!=null) {
-                        ws.close();
+        
+        // FUNCTION TO CONNECT TO CERTAIN CHANNEL
+        const agoraSignaling_connect = async () => {
+            try{
+                await useSignalingClient.login({uid:channelName, token: token});
+                const channel = useSignalingClient.createChannel(channelName);
+                await channel.join();
+                setAgoraChannel(channel);
+            } catch (error) {
+                console.log(error);
+            }
+        }
+        
+        // FUNCTION TO SEND MESSAGE TO CERTAIN CHANNEL
+        const agoraSignaling_sendMessage = () => {
+            try{
+                // MESSAGE TO SERVER
+                const agoraPingTime = new Date().getTime();
+                const apiCall = {
+                    "op": "call_service",
+                    "service": "ping_status",
+                    "args": {
+                        "Ping_time": agoraPingTime
                     }
                 }
-            }, [ip,ws]);
-            
-            
-            
-            setInterval(() => {
-                setLatency(client.getRemoteVideoStats());
-            }, 2000);
-            
-            return (
-                <div className="App">
-                {ready && tracks && (
-                    <Controls tracks={tracks} setStart={setStart} setInCall={setInCall} />
-                    )}
-                    {start && tracks && <Videos users={users} tracks={tracks} />}
+                const message = useSignalingClient.createMessage({
+                    text: JSON.stringify(apiCall)
+                });
+                
+                // SENDING THE MESSAGE
+                console.log("++ Sending message ++");
+                agoraChannel.sendMessage(message);
+                // agoraChannel.removeAllListeners();
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        
+        //AGORA SIGNALING
+        useEffect(() => {
+            if ( agoraChannel===undefined || agoraChannel===null ) {
+                agoraSignaling_connect();
+            } else {
+                agoraSignaling_sendMessage();
+                //RECIEVING MESSAGES
+                agoraChannel.on('ChannelMessage', ({ text }, senderId) => {
+                    console.log('++ Message received: ++', text, ' || from user ', senderId);
+                    const recived = JSON.parse(text!);
+                    const pongTime = new Date().getTime();
+                    setSignalingLatency({
+                        "Browser to Robot": Math.trunc(recived.values.Pong_time) - pingTime,
+                        "Round Trip": pongTime - pingTime,
+                        "One Way": (pongTime - pingTime)/2
+                    });
+                    agoraSignaling_sendMessage();
+                    // setTimeout(() => { newChannel.removeAllListeners(); }, 1000);
+                });
+                agoraChannel.on('MemberJoined', () => {
+                    agoraSignaling_sendMessage();
+                });
+                agoraChannel.on('MemberLeft', () => {
+                    setSignalingLatency({
+                        "Browser to Robot": 0,
+                        "Round Trip": 0,
+                        "One Way": 0
+                    });
+                });
+            }
+
+            return () => {
+                if(agoraChannel) {
+                    agoraChannel.leave();
+                    useSignalingClient.logout();
+                    setAgoraChannel(null);
+                }
+            }
+        }, [agoraChannel]);
+    
+    
+    //WEB SOCKET
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if(ws===undefined || ws===null) {
+                // setWs(new WebSocket("ws://"+ip+":8888"));
+                setWs(new WebSocket("ws://73.24.21.34:8888"));
+            } else {
+                // MESSAGE TO SERVER
+                const pingTime = new Date().getTime();
+                const apiCall = {
+                    "op": "call_service",
+                    "service": "ping_status",
+                    "args": {
+                        "Ping_time": pingTime
+                    },
+                }
+                //SENDING THE MESSAGE
+                ws.send(JSON.stringify(apiCall));
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const pongTime = new Date().getTime();
+                    setInputLatency({
+                        "Browser to Robot": Math.trunc(data.values.Pong_time*1000) - pingTime , 
+                        "Round Trip": pongTime - pingTime, 
+                        "One Way": (pongTime - pingTime)/2});setLatency
+                    }
+                }
+            }, 500);
+            return () => {
+                clearInterval(interval);
+                if (ws!=null) {
+                    ws.close();
+                }
+            }
+        }, [ip,ws]);
+        
+        
+        
+        setInterval(() => {
+            setLatency(client.getRemoteVideoStats());
+        }, 500);
+        
+        
+        return (
+            <div className="App">
+            {ready && tracks && (
+                <Controls tracks={tracks} setStart={setStart} setInCall={setInCall} />
+                )}
+                {start && tracks && <Videos users={users} tracks={tracks} />}
+                <ul className="latency">
+                {Object.keys(latency).map((key) => {
+                    return (
+                        <li key={key}>
+                        <strong>Camera {key}:</strong> {latency[key].end2EndDelay}
+                        <br />
+                        </li>
+                        );
+                    })}</ul>
                     <ul className="latency">
-                    {Object.keys(latency).map((key) => {
+                    <strong>WS Latency:</strong>
+                    {Object.keys(inputLatency).map((key) => {
                         return (
                             <li key={key}>
-                            <strong>Camera {key}:</strong> {latency[key].end2EndDelay}
+                            <strong>{key}:</strong> {inputLatency[key]}
                             <br />
                             </li>
                             );
-                        })}
-                        {Object.keys(inputLatency).map((key) => {
+                            
+                        })}</ul> <ul className="latency">
+                        <strong>Signaling Latency:</strong>
+                        {Object.keys(signalingLatency).map((key) => {
                             return (
                                 <li key={key}>
-                                <strong>{key}:</strong> {inputLatency[key]}
+                                <strong>{key}:</strong> {signalingLatency[key]}
                                 <br />
                                 </li>
                                 );
