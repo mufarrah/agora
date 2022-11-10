@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/rtmQuickstart.dir/rtmQuickstart.cpp.o -o rtmQuickstart   -L/home/cheto/Desktop/RTM_quickstart/lib  -Wl,-rpath,/home/cheto/Desktop/RTM_quickstart/lib -lagora_rtm_sdk -lpthread 
