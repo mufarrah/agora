@@ -4,7 +4,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 import { VideoCall } from "./components/VideoCall";
 import { ChannelForm } from "./components/ChannelForm";
-import { RtmChannel } from "agora-rtm-sdk";
 
 const App = () => {
   const [inCall, setInCall] = useState(false);

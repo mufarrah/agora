@@ -14,15 +14,16 @@ export const Videos = (props: {
     return (
         <div>
         <div id="videos">
-        <AgoraVideoPlayer className='vid' videoTrack={tracks[1]} />
+        {/* <AgoraVideoPlayer className='vid' videoTrack={tracks[1]} /> */}
         {users.length > 0 &&
             users.map((user) => {
                 if (user.videoTrack) {
-                    return (
+                    return ( //THIS RETURNS ONLY ROBOT CAMERAS
                         <AgoraVideoPlayer className='vid' videoTrack={user.videoTrack} key={user.uid} />
                         );
                     } else return null;
                 })}
+                
                 </div>
                 </div>
                 );
