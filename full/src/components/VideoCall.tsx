@@ -29,7 +29,8 @@ export const VideoCall = (props: {
     const { setInCall, channelName, token, ip} = props;
     const [users, setUsers] = useState<IAgoraRTCRemoteUser[]>([]);
     const [start, setStart] = useState<boolean>(false);
-    const [latency, setLatency] = useState<{}>({});let pingTime = 0;
+    const [latency, setLatency] = useState<{}>({});
+    let pingTime = 0;
     const [agoraChannel, setAgoraChannel] = useState<RtmChannel>();
     const [signalingLatency, setSignalingLatency] = useState<{}>({
         "Browser to Robot": 0, 
@@ -41,7 +42,6 @@ export const VideoCall = (props: {
         "Round Trip": 0, 
         "One Way": 0});
         const client = useClient();
-        const { ready, tracks } = useMicrophoneAndCameraTracks();
         const [ws, setWs] = useState<WebSocket>();
         
         //AGORA CAMERAS
@@ -82,23 +82,22 @@ export const VideoCall = (props: {
                 });
                 
                 await client.join(appId, name, token, null);
-                if (tracks) await client.publish([tracks[0], tracks[1]]);
                 setStart(true);
                 
                 
             };
             
-            if (ready && tracks) {
-                console.log("init ready");
-                init(channelName);
-                
-                
-            }
+            
+            console.log("init ready");
+            init(channelName);
+            
+            
+            
             
             setWs(null);
             
             
-        }, [channelName, client, ready, tracks, ip]);
+        }, [channelName, client, ip]);
         
         
         // FUNCTION TO CONNECT TO CERTAIN CHANNEL
@@ -188,12 +187,12 @@ export const VideoCall = (props: {
                     setWs(new WebSocket("ws://73.24.21.34:8888"));
                 } else {
                     // MESSAGE TO SERVER
-                    const pingTime = new Date().getTime();
+                    const pingTimeWs = new Date().getTime();
                     const apiCall = {
                         "op": "call_service",
                         "service": "ping_status",
                         "args": {
-                            "Ping_time": pingTime
+                            "Ping_time": pingTimeWs
                         },
                     }
                     //SENDING THE MESSAGE
@@ -201,10 +200,13 @@ export const VideoCall = (props: {
                     ws.onmessage = (event) => {
                         const data = JSON.parse(event.data);
                         const pongTime = new Date().getTime();
+                        // console.log('+++ MESAGE FROM WS:  ', event.data);
+                        // console.log('+++ RESPONSE OF WS: ',new Date(Math.trunc(data.values.Pong_time*1000)))
+                        // console.log('+++ RIGHT NOW: ',new Date())
                         setInputLatency({
-                            "Browser to Robot": Math.trunc(data.values.Pong_time*1000) - pingTime , 
-                            "Round Trip": pongTime - pingTime, 
-                            "One Way": (pongTime - pingTime)/2});setLatency
+                            "Browser to Robot": Math.trunc(data.values.Pong_time*1000) - pingTimeWs , 
+                            "Round Trip": pongTime - pingTimeWs, 
+                            "One Way": (pongTime - pingTimeWs)/2});
                         }
                     }
                 }, 500);
@@ -225,54 +227,52 @@ export const VideoCall = (props: {
             
             return (
                 <div className="App">
-                {ready && tracks && (
-                    <Controls tracks={tracks} setStart={setStart} setInCall={setInCall} />
-                    )}
-                    {start && tracks && <Videos users={users} tracks={tracks} />}
+                <Controls setStart={setStart} setInCall={setInCall} />
+                {start && <Videos users={users} />}
+                <ul className="latency">
+                {Object.keys(latency).map((key) => {
+                    return (
+                        <li key={key}>
+                        <strong>Camera {key}:</strong> {latency[key].end2EndDelay}
+                        <br />
+                        </li>
+                        );
+                    })}</ul>
                     <ul className="latency">
-                    {Object.keys(latency).map((key) => {
+                    <strong>WS Latency:</strong>
+                    {Object.keys(inputLatency).map((key) => {
                         return (
                             <li key={key}>
-                            <strong>Camera {key}:</strong> {latency[key].end2EndDelay}
+                            <strong>{key}:</strong> {inputLatency[key]}
                             <br />
                             </li>
                             );
-                        })}</ul>
-                        <ul className="latency">
-                        <strong>WS Latency:</strong>
-                        {Object.keys(inputLatency).map((key) => {
+                            
+                        })}</ul> <ul className="latency">
+                        <strong>Signaling Latency:</strong>
+                        {Object.keys(signalingLatency).map((key) => {
                             return (
                                 <li key={key}>
-                                <strong>{key}:</strong> {inputLatency[key]}
+                                <strong>{key}:</strong> {signalingLatency[key]}
                                 <br />
                                 </li>
                                 );
-                                
-                            })}</ul> <ul className="latency">
-                            <strong>Signaling Latency:</strong>
-                            {Object.keys(signalingLatency).map((key) => {
-                                return (
-                                    <li key={key}>
-                                    <strong>{key}:</strong> {signalingLatency[key]}
-                                    <br />
-                                    </li>
-                                    );
-                                })}
-                                </ul>
-                                </div>
-                                );
-                            };
-                            
-                            // browser to robot pong_time-ping 
-                            // roundtrip pong-ping 
-                            // oneway roundtrip/2
-                            
-                            //{
-                            //  "op": "service_response", 
-                            //  "service": "ping_status", 
-                            //  "values": {"
-                            //              Pong_time": 1666212079.0887294, 
-                            //              "ms_to_robot": 166304088.72938156}, 
-                            //              "result": true
-                            //          }
-                            //}
+                            })}
+                            </ul>
+                            </div>
+                            );
+                        };
+                        
+                        // browser to robot pong_time-ping 
+                        // roundtrip pong-ping 
+                        // oneway roundtrip/2
+                        
+                        //{
+                        //  "op": "service_response", 
+                        //  "service": "ping_status", 
+                        //  "values": {"
+                        //              Pong_time": 1666212079.0887294, 
+                        //              "ms_to_robot": 166304088.72938156}, 
+                        //              "result": true
+                        //          }
+                        //}
